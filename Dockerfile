@@ -1,30 +1,3 @@
-FROM node:16.20.1-bookworm as frontend-builder
-
-RUN npm install --global --force yarn@1.22.19
-
-# Controls whether to build the frontend assets
-ARG skip_frontend_build
-
-ENV CYPRESS_INSTALL_BINARY=0
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=1
-
-RUN useradd -m -d /frontend redash
-USER redash
-
-WORKDIR /frontend
-COPY --chown=redash package.json yarn.lock .yarnrc /frontend/
-COPY --chown=redash viz-lib /frontend/viz-lib
-
-# Controls whether to instrument code for coverage information
-ARG code_coverage
-ENV BABEL_ENV=${code_coverage:+test}
-
-RUN if [ "x$skip_frontend_build" = "x" ] ; then yarn --frozen-lockfile --network-concurrency 1; fi
-
-COPY --chown=redash client /frontend/client
-COPY --chown=redash webpack.config.js /frontend/
-RUN if [ "x$skip_frontend_build" = "x" ] ; then yarn build; else mkdir -p /frontend/client/dist && touch /frontend/client/dist/multi_org.html && touch /frontend/client/dist/index.html; fi
-
 FROM python:3.8-slim-bookworm
 
 EXPOSE 5000
@@ -94,7 +67,6 @@ ARG install_groups="main,all_ds,dev"
 RUN /etc/poetry/bin/poetry install --only $install_groups $POETRY_OPTIONS
 
 COPY --chown=redash . /app
-COPY --from=frontend-builder --chown=redash /frontend/client/dist /app/client/dist
 RUN chown redash /app
 USER redash
 
